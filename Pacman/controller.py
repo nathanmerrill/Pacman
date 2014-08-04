@@ -7,10 +7,12 @@ import subprocess
 import os
 import shlex
 import select
+import itertools
 from interruptingcow import timeout
 import time
 
 ON_POSIX = 'posix' in sys.builtin_module_names
+MAX_ROUNDS = 500
 
 class Player(object):
     def __init__(self, name, command):
@@ -24,6 +26,8 @@ class Player(object):
         self.score = 0
         self.is_ghost = False
         self.has_teleported = False
+        self.round = 0
+        self.time_limit = 10
 
     def start(self):
         maze_desc = ""
@@ -34,6 +38,10 @@ class Player(object):
             for square in line:
                 maze_desc+=square.to_hex()
         self.send_message(maze_desc)
+
+    def end_round(self):
+        self.round += 1
+        self.time_limit = 1
 
     def move(self):
         letters = ['P' if len(self.square.players) > 1 else 'X']
@@ -128,7 +136,7 @@ class Player(object):
     def get_response(self):
         if __debug__: print "waiting for response from " + self.name
         try:
-            with timeout(1, exception=RuntimeError):
+            with timeout(self.time_limit, exception=RuntimeError):
                 response = self.process.stdout.readline()
                 if __debug__: print "got response from " + self.name + " : " + response.rstrip()
                 return response
@@ -161,7 +169,7 @@ class Player(object):
     def send_message(self, message):
         if __debug__: print "send message to " + self.name + " : " + message
         try:
-            with timeout(1, exception=RuntimeError):
+            with timeout(self.time_limit, exception=RuntimeError):
                 while not self.pollin.poll(0):
                     time.sleep(0.1)
                 self.process.stdin.write(message+"\n")
@@ -183,6 +191,11 @@ class Ghost(object):
         self.closest_player = None
         self.last_square = None
         self.has_teleported = False
+        self.round = 0
+
+    def end_round(self):
+        self.round += 1
+        self.time_limit = 1
 
     def teleport(self):
         self.step(self.square.maze.get((random.randrange(self.square.maze.side_length),random.randrange(self.square.maze.side_length))))
@@ -346,7 +359,7 @@ class MazeGraphics:
             print "ERROR: Pygame not installed"
             return
         self.square_size = 15
-        pygame.init()
+        pygame.display.init()
         self.bg_color = (0, 0, 0)
         self.fg_color = (0, 0, 255)
         self.dimensions = [maze.side_length*self.square_size]*2
@@ -582,11 +595,12 @@ class Maze(object):
 
 
 def run_programs():
+    players = bots[:]
     for bot in bots:
         bot.start()
-    time.sleep(2)
-    while True:
-        if not bots or not maze.num_pellets:
+    round = 0
+    while round < MAX_ROUNDS:
+        if not bots:
             break
         for ghost in all_ghosts:
             ghost.move()
@@ -596,10 +610,20 @@ def run_programs():
             bot.move()
         for bot in bots[:]:
             bot.check_square()
+        for spite in itertools.chain(all_ghosts, bots):
+            spite.end_round()
+
         graphics.draw_maze()
-    for ghost in all_ghosts:
-        if ghost.__class__.__name__ == "Player":
-            ghost.send_message("Q")
+
+        round += 1
+    for player in players:
+        player.send_message("Q")
+    for player in players:
+        try:
+            with timeout(2, exception=RuntimeError):
+                player.process.wait()
+        except RuntimeError:
+            pass
 
 
 def generate_maze():
@@ -626,10 +650,10 @@ if __name__ == "__main__":
     random.seed()
     bot_scores = {}
     if __debug__:
-        rounds = 1
+        repeats = 1
     else:
-        rounds = 5
-    for x in xrange(rounds):
+        repeats = 5
+    for x in xrange(repeats):
         bots = read_bot_list()
         all_ghosts = []
         maze = generate_maze()

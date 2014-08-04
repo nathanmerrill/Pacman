@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import math
+import pygame
 import random
 import sys
 import subprocess
@@ -22,6 +23,7 @@ class Player(object):
         self.pollin.register(self.process.stdin, select.POLLOUT)   
         self.turns_invincible = 0
         self.score = 0
+        self.cur_invincible_bonus = 200
         self.is_ghost = False
         self.has_teleported = False
 
@@ -102,7 +104,8 @@ class Player(object):
                 for ghost in self.square.ghosts:
                     ghost.teleport()
                 for player in invincibles:
-                    player.score += 200
+                    player.score += player.cur_invincible_bonus
+                    player.cur_invincible_bonus *= 2
             else:
                 self.is_ghost = True
                 all_ghosts.append(self)
@@ -119,6 +122,8 @@ class Player(object):
             self.score += 10
         elif self.square.contents is PowerPellet:
             self.score += 50
+            if not self.turns_invincible:
+                self.cur_invincible_bonus = 200
             self.turns_invincible = 10
         elif self.square.contents is Fruit:
             self.score += 100
@@ -336,16 +341,9 @@ ghosts = Inky, Blinky, Clyde, Pinky
 
 class MazeGraphics:
     def __init__(self, maze):
-        self.has_pygame = True
-        self.maze = maze
-        try:
-            import pygam
-        except ImportError:
-            self.has_pygame = False
-            print "ERROR: Pygame not installed"
-            return
         self.square_size = 15
         pygame.init()
+        self.maze = maze
         self.bg_color = (0, 0, 0)
         self.fg_color = (0, 0, 255)
         self.dimensions = [maze.side_length*self.square_size]*2
@@ -354,32 +352,10 @@ class MazeGraphics:
         pygame.display.flip()
 
     def draw_maze(self):
-        if self.has_pygame:
-            for line in self.maze.grid:
-                for square in line:
-                    self.draw_square(square)
-            self.update()
-        else:
-            top_str = ""
-            bottom_str = ""
-            for line in self.maze.grid:
-                for square in line:
-                    top_str += "*"
-                    if square.walls[0]:
-                        top_str += "*"
-                    else:
-                        top_str += " "
-                    if square.walls[3]:
-                        bottom_str += "|"
-                    else:
-                        bottom_str += " "
-                    bottom_str += square.letter()
-                print top_str
-                print bottom_str
-                top_str = ""
-                bottom_str = ""
-            print "\r\n"
-                    
+        for line in self.maze.grid:
+            for square in line:
+                self.draw_square(square)
+        self.update()
 
     def update(self):
         self.screen.blit(self.screen, (0, 0))
@@ -409,7 +385,6 @@ class MazeGraphics:
         circle_size = self.square_size/6 if square.contents is Pellet and not square.ghosts and not square.players else self.square_size/3
         circle_offset = [coordinate*self.square_size + self.square_size/2 for coordinate in square.coordinates]
         pygame.draw.circle(self.screen, circle_color, circle_offset, circle_size)
-
 
 
 class Direction(object):
@@ -591,9 +566,11 @@ def run_programs():
         for bot in bots[:]:
             bot.check_square()
         graphics.draw_maze()
+        # if __debug__: time.sleep(1)
     for ghost in all_ghosts:
         if ghost.__class__.__name__ == "Player":
             ghost.send_message("Q")
+    time.sleep(1)
 
 
 def generate_maze():
@@ -612,7 +589,7 @@ def read_bot_list():
             continue
         command = file.read()
         file.close()
-        for x in xrange(1):
+        for x in xrange(5):
             players.append(Player(dir, command))
     return players
 

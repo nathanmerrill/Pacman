@@ -382,6 +382,7 @@ class MazeGraphics:
                     
 
     def update(self):
+        import pygame
         self.screen.blit(self.screen, (0, 0))
         pygame.display.update()
         for event in pygame.event.get():
@@ -390,6 +391,7 @@ class MazeGraphics:
 
     def draw_square(self, square):
         square_coordinates = [a*self.square_size for a in square.coordinates]
+        import pygame
         rect = pygame.Rect(square_coordinates, (self.square_size, self.square_size))
         self.screen.fill(self.bg_color, rect)
         for index, wall in enumerate(square.walls):

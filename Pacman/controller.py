@@ -8,7 +8,6 @@ import os
 import shlex
 import select
 import itertools
-from interruptingcow import timeout
 import time
 
 ON_POSIX = 'posix' in sys.builtin_module_names
@@ -16,6 +15,7 @@ MAX_ROUNDS = 500
 WINDOWS = False
 try:
     select.poll()
+    from interruptingcow import timeout
 except:
     WINDOWS = True
     pass
@@ -143,14 +143,10 @@ class Player(object):
     def get_response(self):
         if WINDOWS:
             while True:
-                try:
-                    message = self.process.stdout.readline()
-                    if __debug__:
-                        print "got message:"+message
-                    return message
-                except IOError, e:
-                    import pdb
-                    pdb.set_trace()
+                message = self.process.stdout.readline()
+                if __debug__:
+                    print "got message:"+message
+                return message
 
         if __debug__: print "waiting for response from " + self.name
         try:

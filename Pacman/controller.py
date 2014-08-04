@@ -339,7 +339,7 @@ class MazeGraphics:
         self.has_pygame = True
         self.maze = maze
         try:
-            import pygam
+            import pygame
         except ImportError:
             self.has_pygame = False
             print "ERROR: Pygame not installed"

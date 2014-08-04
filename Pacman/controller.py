@@ -116,6 +116,7 @@ class Player(object):
         if self.square.contents is Nothing:
             return
         if self.square.contents is Pellet:
+            self.square.maze.num_pellets -= 1;
             self.score += 10
         elif self.square.contents is PowerPellet:
             self.score += 50
@@ -175,7 +176,7 @@ class Player(object):
 
 class Ghost(object):
     def __init__(self, start_square):
-        self.duration = 10
+        self.duration = random.randrange(5,12)
         self.count = 0
         self.chasing = False
         self.square = start_square
@@ -491,6 +492,7 @@ class Maze(object):
         self.num_ghosts = 2*self.num_players
         self.num_power_pellets = 4*self.num_players
         self.num_fruit = 2*self.num_players
+        self.num_pellets = self.side_length**2 - self.num_ghosts - self.num_power_pellets - self.num_fruit - self.num_players
         self.grid = [[Square(self, (b, a)) for a in xrange(self.side_length)] for b in xrange(self.side_length)]
 
     def get(self, coordinates, wraps=False):
@@ -513,18 +515,20 @@ class Maze(object):
     def generate(self):
         start_square = self.get((random.randrange(self.side_length),
                                  random.randrange(self.side_length)))
-        to_process = [start_square]
+        to_process = [(start_square,start_square.neighbors(wraps=False, connected=False))]
         while to_process:
             random.shuffle(to_process)
-            next_square = to_process[-1]
-            unconnected_neighbors = [x for x in next_square.neighbors(wraps=True) if x and all(x.walls)]
+            next_square = to_process[-1][0]
+            unconnected_neighbors = [x for x in to_process[-1][1] if x and all(x.walls)]
             if unconnected_neighbors:
                 random.shuffle(unconnected_neighbors)
                 connection = unconnected_neighbors.pop()
                 next_square.connect_to(connection)
                 if not unconnected_neighbors:
                     to_process.pop()
-                to_process.append(connection)
+                connection_neighbors = connection.neighbors(connected=False, wraps=False)
+                if connection_neighbors:
+                    to_process.append((connection, connection_neighbors))
             else:
                 to_process.pop()
         for line in self.grid:
@@ -580,9 +584,9 @@ class Maze(object):
 def run_programs():
     for bot in bots:
         bot.start()
-    time.sleep(10)
+    time.sleep(2)
     while True:
-        if not bots:
+        if not bots or not maze.num_pellets:
             break
         for ghost in all_ghosts:
             ghost.move()
@@ -620,12 +624,23 @@ def read_bot_list():
 
 if __name__ == "__main__":
     random.seed()
-    bots = read_bot_list()
-    all_ghosts = []
-    maze = generate_maze()
-    graphics = MazeGraphics(maze)
-    graphics.draw_maze()
-    run_programs()
-
-    for bot in sorted([bot for bot in all_ghosts if isinstance(bot, Player)], key=lambda x: x.score, reverse=True):
-        print bot.name + ": "+str(bot.score)+" points"
+    bot_scores = {}
+    if __debug__:
+        rounds = 1
+    else:
+        rounds = 5
+    for x in xrange(rounds):
+        bots = read_bot_list()
+        all_ghosts = []
+        maze = generate_maze()
+        graphics = MazeGraphics(maze)
+        graphics.draw_maze()
+        run_programs()
+                
+        for bot in [bot for bot in all_ghosts if isinstance(bot, Player)]:
+            if bot.name not in bot_scores:
+                bot_scores[bot.name] = bot.score
+            else:
+                bot_scores[bot.name] += bot.score
+    for bot_name in bot_scores:
+        print bot_name+": "+str(bot_scores[bot_name])+" points"

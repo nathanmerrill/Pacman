@@ -13,6 +13,12 @@ import time
 
 ON_POSIX = 'posix' in sys.builtin_module_names
 MAX_ROUNDS = 500
+WINDOWS = False
+try:
+    select.poll()
+except:
+    WINDOWS = True
+    pass
 
 class Player(object):
     def __init__(self, name, command):
@@ -20,8 +26,9 @@ class Player(object):
         self.direction = North
         self.square = None
         self.process = subprocess.Popen(shlex.split(command), stdout=subprocess.PIPE, stdin=subprocess.PIPE, bufsize=1, close_fds=ON_POSIX, cwd="bots/"+name+"/")
-        self.pollin = select.poll()
-        self.pollin.register(self.process.stdin, select.POLLOUT)   
+        if not WINDOWS:
+            self.pollin = select.poll()
+            self.pollin.register(self.process.stdin, select.POLLOUT)
         self.turns_invincible = 0
         self.score = 0
         self.is_ghost = False
@@ -134,6 +141,17 @@ class Player(object):
         self.square.contents = Nothing
 
     def get_response(self):
+        if WINDOWS:
+            while True:
+                try:
+                    message = self.process.stdout.readline()
+                    if __debug__:
+                        print "got message:"+message
+                    return message
+                except IOError, e:
+                    import pdb
+                    pdb.set_trace()
+
         if __debug__: print "waiting for response from " + self.name
         try:
             with timeout(self.time_limit, exception=RuntimeError):
@@ -168,6 +186,10 @@ class Player(object):
 
     def send_message(self, message):
         if __debug__: print "send message to " + self.name + " : " + message
+        if WINDOWS:
+            self.process.stdin.write(message+"\n")
+            self.process.stdin.flush()
+            return
         try:
             with timeout(self.time_limit, exception=RuntimeError):
                 while not self.pollin.poll(0):
@@ -181,6 +203,7 @@ class Player(object):
 
     def remove(self):
         self.square.players.remove(self)
+
 
 class Ghost(object):
     def __init__(self, start_square):
@@ -618,12 +641,13 @@ def run_programs():
         round += 1
     for player in players:
         player.send_message("Q")
-    for player in players:
-        try:
-            with timeout(2, exception=RuntimeError):
-                player.process.wait()
-        except RuntimeError:
-            pass
+    if not WINDOWS:
+        for player in players:
+            try:
+                with timeout(2, exception=RuntimeError):
+                    player.process.wait()
+            except RuntimeError:
+                pass
 
 
 def generate_maze():

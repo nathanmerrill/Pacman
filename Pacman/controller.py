@@ -65,9 +65,10 @@ class Player(object):
         else:
             follow_directions = range(0, 4)
         for d in follow_directions:
+            first_square = self.square
             cur_square = self.square
             next_square = cur_square.neighbors(wraps=True)[d]
-            while cur_square.is_connected_to(next_square, wraps=True):
+            while cur_square.is_connected_to(next_square, wraps=True) and cur_square!=first_square:
                 letters.append(",".join([str(x) for x in next_square.coordinates])+next_square.letter())
                 cur_square = next_square
                 next_square = next_square.neighbors(wraps=True)[d]
@@ -672,7 +673,7 @@ if __name__ == "__main__":
     if __debug__:
         repeats = 1
     else:
-        repeats = 5
+        repeats = 50
     for x in xrange(repeats):
         bots = read_bot_list()
         all_ghosts = []

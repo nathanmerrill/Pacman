@@ -664,7 +664,8 @@ def read_bot_list():
         command = file.read()
         file.close()
         for x in xrange(1):
-            players.append(Player(dir, command))
+            if command:
+                players.append(Player(dir, command))
     return players
 
 if __name__ == "__main__":

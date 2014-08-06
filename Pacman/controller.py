@@ -84,8 +84,6 @@ class Player(object):
 
         message = " ".join(letters)
         self.send_message(message)
-        import pdb
-        pdb.set_trace()
         while True:
             move = str(self.get_response()).lower().strip()
             coord = move.split(",")

@@ -447,7 +447,6 @@ class MazeGraphics:
         pygame.draw.circle(self.screen, circle_color, circle_offset, circle_size)
 
 
-
 class Direction(object):
 
     def __init__(self, x, y):
@@ -672,7 +671,7 @@ if __name__ == "__main__":
     random.seed()
     bot_scores = {}
     if __debug__:
-        repeats = 1
+        repeats = 50
     else:
         repeats = 50
     for x in xrange(repeats):

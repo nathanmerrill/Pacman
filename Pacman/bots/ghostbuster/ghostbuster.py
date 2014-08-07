@@ -8,6 +8,9 @@ import random
 
 sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0) # automatically flush stdout
 
+P,G,o,O,F,X = 10,500,-10,-75,-100,2
+PreviousSquarePenalty = 100
+
 # read in the maze description
 maze_desc = sys.stdin.readline().rstrip()
 mazeSize = int(math.sqrt(len(maze_desc)))
@@ -15,7 +18,6 @@ mazeSize = int(math.sqrt(len(maze_desc)))
 North,East,South,West = range(4)
 DIRECTIONS = ['N','E','S','W']
 Euclidian,Manhattan,Chebyshev = range(3)
-P,G,o,O,F,X = 5,200,-10,-100,-75,0
 
 sign = lambda x: (1, -1)[x<0]
 wrap = lambda v : v % mazeSize
@@ -28,28 +30,28 @@ class Node(object):
         self.nodes = {}
         self.item = 'o' # Start as normal pellet
 
-    def connect(self, otherNode, dir):
+    def connect(self, otherNode, dir):    
         if dir not in self.nodes:
-            self.nodes[dir] = otherNode
+            self.nodes[dir] = otherNode       
             otherNode.nodes[(dir+2)%4] = self
 
-    def distance(self, otherNode, meth = Euclidian):
-        xd = otherNode.x - self.x
-        yd = otherNode.y - self.y
-        absxd = min(abs(xd), mazeSize - abs(xd))
-        absyd = min(abs(yd), mazeSize - abs(yd))
+    def distance(self, otherNode, meth = Manhattan):
+        xd = abs(otherNode.x - self.x)        
+        yd = abs(otherNode.y - self.y)
+        xd = min(xd, mazeSize - xd)
+        yd = min(yd, mazeSize - yd)
         if meth == Euclidian:
-            return math.sqrt(absxd * absxd + absxd * absxd)
+            return math.sqrt(xd * xd + yd * yd)       
         if meth == Manhattan:
-            return absxd + absyd
-        if meth == Chebyshev:
-            return max(absxd, absyd)
+            return xd + yd
+        if meth == Chebyshev:      
+            return max(xd, yd)
 
     def direction(self, otherNode):
         for key, value in self.nodes.iteritems():
             if value == otherNode:
-                return DIRECTIONS[key]
-        return 'X'
+                return DIRECTIONS[key]            
+        return 'ERROR'
 
     def getScore(self):
         score = eval(self.item)
@@ -57,18 +59,22 @@ class Node(object):
             score += eval(node.item)
         return score
 
+    def nearbyGhost(self):
+        if self.item == 'G':
+            return True
+        for node in self.nodes.values():
+            if node.item == 'G':
+                return True
+        return False
 
-    def __hash__(self):
-        hValue = 17
-        hValue = hValue*23 + hash(self.x)
-        hValue = hValue*23 + hash(self.y)
-        return hValue
+    def __hash__(self):  
+        return  (391 + hash(self.x))*23 + hash(self.y)
 
     def __eq__(self, other):
-        return (self.x,self.y) == (other.x, other.y)
+        return (self.x, self.y) == (other.x, other.y)
 
     def __ne__(self, other):
-        return (self.x,self.y) != (other.x, other.y)
+        return (self.x, self.y) != (other.x, other.y)
 
     def __str__(self):
         return str(self.x)+","+str(self.y)
@@ -76,21 +82,19 @@ class Node(object):
     def __repr__(self):
         return str(self.x)+","+str(self.y)
 
-
 # Make all the nodes first
 nodes = {}
 i = 0
 for y in range(mazeSize):
-    for x in range(mazeSize):
-        node = Node(x,y,maze_desc[i])
-        nodes[x,y] = node
+    for x in range(mazeSize):       
+        nodes[x,y] = Node(x,y,maze_desc[i])  
         i+=1
 
 # Connect all the nodes together to form the maze
 for node in nodes.values():
     walls = node.wallValue
-    x,y = node.x,node.y
-    if not walls&1:
+    x,y = node.x,node.y    
+    if not walls&1:  
         node.connect(nodes[x,wrap(y-1)], North)
     if not walls&2:
         node.connect(nodes[wrap(x+1),y], East)
@@ -100,13 +104,19 @@ for node in nodes.values():
         node.connect(nodes[wrap(x-1),y], West)
 
 toVisit = set(nodes.values())
+currentNode = None
+destinationNode = None
+previousNode = None
+testInvincibilty = False
+invincibility = 0
+isGhost = False
 
 def aStar(startNode, endNode):
     openSet = set([startNode])
     closedSet = set()
     gScores = {startNode: 0}
     cameFrom = {}
-    curNode = startNode
+    curNode = startNode  
     while openSet:
         minF = 100000000
         for node in openSet:
@@ -129,7 +139,19 @@ def aStar(startNode, endNode):
         for node in curNode.nodes.values():
             if node in closedSet:
                 continue
-            g = gScores[curNode] + node.getScore()
+            g = gScores[curNode]
+            if isGhost:
+                g += 1
+                if node.item == 'P':
+                    g -= 10 # prefer PacMen
+            else:
+                s = node.getScore();
+                if invincibility > 1:
+                    g -= abs(s) # everything is tasty when invincible
+                else:
+                    g += s
+                if previousNode and node == previousNode:
+                    g += PreviousSquarePenalty # penalize previous square
             isBetter = False
             if node not in openSet:
                 openSet.add(node)
@@ -143,9 +165,6 @@ def aStar(startNode, endNode):
 # regex to parse a line of input
 input_re = re.compile('(?:([-\d]+),([-\d]+)([PGoOFX]?) ?)+')
 
-currentNode = None
-destinationNode = None
-
 while True:
     info = sys.stdin.readline().rstrip()
     if (not info) or (info == "Q"):
@@ -158,20 +177,40 @@ while True:
     for cell in info:
         nodes[int(cell[0]),int(cell[1])].item = cell[2]
 
-    # current location
-    x = int(info[0][0])
-    y = int(info[0][1])
+    currentNode = nodes[int(info[0][0]),int(info[0][1])]    
 
-    currentNode = nodes[x,y]
+    if not isGhost and currentNode.item == 'G':
+        isGhost = True
+        destinationNode = random.sample(nodes.values(), 1)[0]
 
-    while not destinationNode or destinationNode == currentNode:
-        destinationNode = random.sample(toVisit, 1)[0]
+    if isGhost:     
+        while destinationNode == currentNode or currentNode.distance(destinationNode) > 8:
+            destinationNode = random.sample(nodes.values(), 1)[0]
+    else:
+        if invincibility > 0:
+            invincibility -=  1
 
-    toVisit.discard(destinationNode)
+        if testInvincibilty:
+            testInvincibilty = False
+            if currentNode.item == 'X':
+                invincibility += 10
+
+        while not destinationNode or destinationNode == currentNode:
+            destinationNode = random.sample(toVisit, 1)[0]
+
+        toVisit.discard(currentNode)
+
 
     bestPath = aStar(currentNode, destinationNode)
 
-    firstNode = bestPath[0]
+    nextNode = bestPath[0]
 
-    direction = currentNode.direction(firstNode)
+    direction = currentNode.direction(nextNode)
+
+    if not isGhost:
+        if nextNode.item == 'O':   
+            testInvincibilty = True      
+
+    previousNode = currentNode
+
     print direction

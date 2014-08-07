@@ -667,7 +667,7 @@ def read_bot_list():
         file.close()
         if commands:
             for command in commands[0:-1]:
-                subprocess.call(command,cwd="bots/"+dir+"/")
+                subprocess.call(command.split(" "), cwd="bots/"+dir+"/")
             if WINDOWS:
                 commands[-1]=commands[-1].replace("./", "bots/"+dir+"/")
             players.append(Player(dir, commands[-1]))

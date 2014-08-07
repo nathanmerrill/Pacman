@@ -128,12 +128,14 @@ class Player(object):
                 self.square.ghosts.append(self)
             return
         if len(self.square.players) > 1:
+            if self.square.contents is Pellet:
+                self.square.maze.num_pellets -= 1
             self.square.contents = Nothing
             return
         if self.square.contents is Nothing:
             return
         if self.square.contents is Pellet:
-            self.square.maze.num_pellets -= 1;
+            self.square.maze.num_pellets -= 1
             self.score += 10
         elif self.square.contents is PowerPellet:
             self.score += 50
@@ -620,7 +622,7 @@ def run_programs():
         bot.start()
     round = 0
     while round < MAX_ROUNDS:
-        if not bots:
+        if not bots or not maze.num_pellets:
             break
         for ghost in all_ghosts:
             ghost.move()

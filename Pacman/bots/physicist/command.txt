@@ -1,1 +1,2 @@
-./physicist
+ghc -o physicist -O3 physicist.hs
+bots/physicist/physicist

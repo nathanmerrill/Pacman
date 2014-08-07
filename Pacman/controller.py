@@ -663,11 +663,14 @@ def read_bot_list():
             file = open("bots/"+dir+"/command.txt", 'r')
         except IOError:
             continue
-        command = file.read()
+        commands = file.read().splitlines()
         file.close()
-        for x in xrange(1):
-            if command:
-                players.append(Player(dir, command))
+        if commands:
+            for command in commands[0:-1]:
+                subprocess.call(command,cwd="bots/"+dir+"/")
+            if WINDOWS:
+                commands[-1]=commands[-1].replace("./", "bots/"+dir+"/")
+            players.append(Player(dir, commands[-1]))
     return players
 
 if __name__ == "__main__":

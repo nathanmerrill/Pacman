@@ -8,8 +8,8 @@ import random
 
 sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0) # automatically flush stdout
 
-P,G,o,O,F,X = 10,500,-10,-75,-100,2
-PreviousSquarePenalty = 100
+P,G,o,O,F,X = 10,200,-10,-75,-100,10
+PreviousSquarePenalty = 10
 
 # read in the maze description
 maze_desc = sys.stdin.readline().rstrip()

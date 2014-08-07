@@ -51,7 +51,6 @@ class Player(object):
         self.time_limit = 1
 
     def move(self):
-        letters = ['P' if len(self.square.players) > 1 else 'X']
         letters = [",".join([str(x) for x in self.square.coordinates])]
         if self.is_ghost:
             letters[0] += "G"
@@ -68,7 +67,7 @@ class Player(object):
             first_square = self.square
             cur_square = self.square
             next_square = cur_square.neighbors(wraps=True)[d]
-            while cur_square.is_connected_to(next_square, wraps=True) and cur_square!=first_square:
+            while cur_square.is_connected_to(next_square, wraps=True) and next_square!=first_square:
                 letters.append(",".join([str(x) for x in next_square.coordinates])+next_square.letter())
                 cur_square = next_square
                 next_square = next_square.neighbors(wraps=True)[d]
@@ -79,6 +78,8 @@ class Player(object):
             if (not self.square.walls[cur_direction] and not self.square.neighbors(wraps=True)[cur_direction].walls[prev_direction])\
                     or (not self.square.walls[prev_direction] and not self.square.neighbors(wraps=True)[prev_direction].walls[cur_direction]):
                 corner = self.square.neighbors(wraps=True)[cur_direction].neighbors(wraps=True)[prev_direction]
+                if corner == self.square:
+                    continue
                 letters.append(",".join([str(x) for x in corner.coordinates])+corner.letter())
 
         message = " ".join(letters)
@@ -91,20 +92,20 @@ class Player(object):
             if coord[0].isdigit() and coord[1].isdigit():
                 self.send_message(self.square.grid.get(coord).to_hex())
         if move=="n":
-            direction = North
+            self.direction = North
         elif move=="e":
-            direction = East
+            self.direction = East
         elif move=="w":
-            direction = West
+            self.direction = West
         elif move=="s":
-            direction = South
+            self.direction = South
         else:
             if move != 'x':
                 self.send_message("Bad input:"+move)
-            direction = None
+            self.direction = None
 
-        if direction:
-            index = directions.index(direction)
+        if self.direction:
+            index = directions.index(self.direction)
             if self.square.walls[index]:
                 if __debug__: print self.name + " walked " + move + " into a wall!"
                 self.direction = None
@@ -671,7 +672,7 @@ if __name__ == "__main__":
     random.seed()
     bot_scores = {}
     if __debug__:
-        repeats = 50
+        repeats = 1
     else:
         repeats = 50
     for x in xrange(repeats):
